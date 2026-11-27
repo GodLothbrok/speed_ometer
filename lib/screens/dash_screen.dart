@@ -19,45 +19,56 @@ class DashScreen extends StatefulWidget {
 
 class _DashScreenState extends State<DashScreen> {
   SharedPreferences? _sharedPreferences;
-  // For text to speed naration of current velocity
-  /// Initiate service
   late FlutterTts _ttsService;
-
-  /// Create a stream trying to speak speed
   StreamSubscription? _ttsCallback;
 
-  /// String that the tts will read aloud, Speed + Expanded Unit
+  /// String that the tts will read aloud, Speed + Expanded Unit (Adapted to selected language)
   String get speakText {
-    String unit;
+    String unitText;
+    final bool isIndo = _ttsLanguage.startsWith('id') || _ttsLanguage.startsWith('ms');
+
     switch (widget.unit) {
       case 'km/h':
-        unit = 'kilometers per hour';
+        unitText = isIndo ? 'kilometer per jam' : 'kilometers per hour';
         break;
 
       case 'miles/h':
-        unit = 'miles per hour';
+        unitText = isIndo ? 'mil per jam' : 'miles per hour';
         break;
 
       case 'm/s':
       default:
-        unit = 'meters per second';
+        unitText = isIndo ? 'meter per detik' : 'meters per second';
         break;
     }
-    return '${convertedVelocity(_velocity)!.toStringAsFixed(2)} $unit';
+
+    final String speedFormatted = convertedVelocity(_velocity)!.toStringAsFixed(1);
+    return isIndo
+        ? '${speedFormatted.replaceAll('.', ' koma ')} $unitText'
+        : '$speedFormatted $unitText';
   }
 
-  void _startTTS() {
-    if (!_isTTSFemale) {
-      _ttsService.setVoice({'name': 'en-us-x-tpd-local', 'locale': 'en-US'});
+  Future<void> _startTTS() async {
+    await _ttsService.setLanguage(_ttsLanguage);
+    await _ttsService.setSpeechRate(_ttsSpeechRate);
+
+    // Hanya terapkan voice spesifik en-US jika bahasa yang dipilih adalah en-US
+    if (_ttsLanguage == 'en-US') {
+      if (!_isTTSFemale) {
+        await _ttsService.setVoice({'name': 'en-us-x-tpd-local', 'locale': 'en-US'});
+      } else {
+        await _ttsService.setVoice({'name': 'en-US-language', 'locale': 'en-US'});
+      }
     } else {
-      _ttsService.setVoice({'name': 'en-US-language', 'locale': 'en-US'});
+      // Gunakan pitch sedikit berbeda untuk membedakan suara pria/wanita pada bahasa lain
+      await _ttsService.setPitch(_isTTSFemale ? 1.1 : 0.85);
     }
 
     _ttsCallback?.cancel();
 
     if (_isTTSActive) _ttsService.speak(speakText);
     _ttsCallback =
-        Stream.periodic(_ttsDuration! + const Duration(seconds: 1)).listen(
+        Stream.periodic((_ttsDuration ?? const Duration(seconds: 3)) + const Duration(seconds: 1)).listen(
       (event) {
         if (_isTTSActive) _ttsService.speak(speakText);
       },
@@ -74,6 +85,7 @@ class _DashScreenState extends State<DashScreen> {
             _startTTS();
           } else {
             _ttsCallback?.cancel();
+            _ttsService.stop();
           }
         },
       );
@@ -88,12 +100,32 @@ class _DashScreenState extends State<DashScreen> {
         },
       );
 
-  /// TTS talk duraiton
+  /// TTS talk duration
   Duration? _ttsDuration;
   void setDuration(int seconds) => setState(
         () {
           _ttsDuration = _secondsToDuration(seconds);
           _sharedPreferences?.setInt('ttsDuration', seconds);
+          if (_isTTSActive) _startTTS();
+        },
+      );
+
+  /// TTS Language
+  String _ttsLanguage = 'id-ID';
+  void setLanguage(String newLang) => setState(
+        () {
+          _ttsLanguage = newLang;
+          _sharedPreferences?.setString('ttsLanguage', _ttsLanguage);
+          if (_isTTSActive) _startTTS();
+        },
+      );
+
+  /// TTS Speech Rate (0.2 to 1.0)
+  double _ttsSpeechRate = 0.55;
+  void setSpeechRate(double newRate) => setState(
+        () {
+          _ttsSpeechRate = newRate;
+          _sharedPreferences?.setDouble('ttsSpeechRate', _ttsSpeechRate);
           if (_isTTSActive) _startTTS();
         },
       );
@@ -105,25 +137,15 @@ class _DashScreenState extends State<DashScreen> {
   }
 
   // For velocity Tracking
-  /// Geolocator is used to find velocity
   GeolocatorPlatform locator = GeolocatorPlatform.instance;
-
-  /// Stream that emits values when velocity updates
   late StreamController<double?> _velocityUpdatedStreamController;
 
-  /// Current Velocity in m/s
   double? _velocity;
-
-  /// Highest recorded velocity so far in m/s.
   double? _highestVelocity;
 
-  /// Velocity in m/s to km/hr converter
   double mpstokmph(double mps) => mps * 18 / 5;
-
-  /// Velocity in m/s to miles per hour converter
   double mpstomilesph(double mps) => mps * 85 / 38;
 
-  /// Relevant velocity in chosen unit
   double? convertedVelocity(double? velocity) {
     velocity = velocity ?? _velocity;
 
@@ -140,7 +162,6 @@ class _DashScreenState extends State<DashScreen> {
   @override
   void initState() {
     super.initState();
-    // Speedometer functionality. Updates any time velocity chages.
     _velocityUpdatedStreamController = StreamController<double?>();
     locator
         .getPositionStream(
@@ -152,28 +173,27 @@ class _DashScreenState extends State<DashScreen> {
           (Position position) => _onAccelerate(position.speed),
         );
 
-    // Set velocities to zero when app opens
     _velocity = 0;
     _highestVelocity = 0.0;
+    _ttsDuration = const Duration(seconds: 3);
 
-    // Set up tts
     _ttsService = FlutterTts();
-    _ttsService.setSpeechRate(1);
 
-    // Load Saved values (or default values when no saved values)
     SharedPreferences.getInstance().then(
       (SharedPreferences prefs) {
         _sharedPreferences = prefs;
-        _isTTSActive = prefs.getBool('isTTSActive') ?? true;
-        _isTTSFemale = prefs.getBool('isTTSFemale') ?? true;
-        _ttsDuration = _secondsToDuration(prefs.getInt('ttsDuration') ?? 3);
-        // Start text to speech service
+        setState(() {
+          _isTTSActive = prefs.getBool('isTTSActive') ?? true;
+          _isTTSFemale = prefs.getBool('isTTSFemale') ?? true;
+          _ttsDuration = _secondsToDuration(prefs.getInt('ttsDuration') ?? 3);
+          _ttsLanguage = prefs.getString('ttsLanguage') ?? 'id-ID';
+          _ttsSpeechRate = prefs.getDouble('ttsSpeechRate') ?? 0.55;
+        });
         _startTTS();
       },
     );
   }
 
-  /// Callback that runs when velocity updates, which in turn updates stream.
   void _onAccelerate(double speed) {
     locator.getCurrentPosition().then(
       (Position updatedPosition) {
@@ -191,7 +211,6 @@ class _DashScreenState extends State<DashScreen> {
     return ListView(
       scrollDirection: Axis.vertical,
       children: <Widget>[
-        // StreamBuilder updates Speedometer when new velocity recieved
         StreamBuilder<Object?>(
           stream: _velocityUpdatedStreamController.stream,
           builder: (context, snapshot) {
@@ -208,9 +227,13 @@ class _DashScreenState extends State<DashScreen> {
           isTTSActive: _isTTSActive,
           isTTSFemale: _isTTSFemale,
           currentDuration: _ttsDuration,
+          currentLanguage: _ttsLanguage,
+          currentSpeechRate: _ttsSpeechRate,
           activeSetter: setIsActive,
           femaleSetter: setIsFemale,
           durationSetter: setDuration,
+          languageSetter: setLanguage,
+          speechRateSetter: setSpeechRate,
         ),
       ],
     );
@@ -218,10 +241,8 @@ class _DashScreenState extends State<DashScreen> {
 
   @override
   void dispose() {
-    // Velocity Stream
     _velocityUpdatedStreamController.close();
-    // TTS
-    _ttsCallback!.cancel();
+    _ttsCallback?.cancel();
     _ttsService.stop();
     super.dispose();
   }
