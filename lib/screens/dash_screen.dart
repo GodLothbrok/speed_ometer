@@ -166,6 +166,7 @@ class _DashScreenState extends State<DashScreen> {
         .getPositionStream(
           locationSettings: const LocationSettings(
             accuracy: LocationAccuracy.bestForNavigation,
+            distanceFilter: 0,
           ),
         )
         .listen(
@@ -194,13 +195,17 @@ class _DashScreenState extends State<DashScreen> {
   }
 
   void _onAccelerate(double speed) {
-    locator.getCurrentPosition().then(
-      (Position updatedPosition) {
-        _velocity = (speed + updatedPosition.speed) / 2;
-        if (_velocity! > _highestVelocity!) _highestVelocity = _velocity;
-        _velocityUpdatedStreamController.add(_velocity);
-      },
-    );
+    // Pastikan nilai negatif (jika sensor belum siap) diubah menjadi 0
+    final double validSpeed = speed < 0 ? 0.0 : speed;
+    if (mounted) {
+      setState(() {
+        _velocity = validSpeed;
+        if (_velocity! > _highestVelocity!) {
+          _highestVelocity = _velocity;
+        }
+      });
+      _velocityUpdatedStreamController.add(_velocity);
+    }
   }
 
   @override
