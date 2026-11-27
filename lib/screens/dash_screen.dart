@@ -246,6 +246,20 @@ class _DashScreenState extends State<DashScreen> {
     return ListView(
       scrollDirection: Axis.vertical,
       children: <Widget>[
+        // Indikator Status Koneksi GPS
+        Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: Center(
+            child: Text(
+              _gpsStatus,
+              style: const TextStyle(
+                color: Color(0xFFE9A246),
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
         StreamBuilder<Object?>(
           stream: _velocityUpdatedStreamController.stream,
           builder: (context, snapshot) {
@@ -273,6 +287,7 @@ class _DashScreenState extends State<DashScreen> {
       ],
     );
   }
+
 
   @override
   void dispose() {
