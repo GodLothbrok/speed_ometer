@@ -22,10 +22,14 @@ class _DashScreenState extends State<DashScreen> {
   late FlutterTts _ttsService;
   StreamSubscription? _ttsCallback;
 
-   /// String that the tts will read aloud, Speed + Expanded Unit (Adapted to selected language)
+  // Variabel status GPS yang ditampilkan di atas layar
+  String _gpsStatus = "Mencari sinyal GPS...";
+
+  /// String that the tts will read aloud, Speed + Expanded Unit (Rounded & Localized)
   String get speakText {
     String unitText;
-    final bool isIndo = _ttsLanguage.startsWith('id') || _ttsLanguage.startsWith('ms');
+    final bool isIndo =
+        _ttsLanguage.startsWith('id') || _ttsLanguage.startsWith('ms');
 
     switch (widget.unit) {
       case 'km/h':
@@ -42,8 +46,8 @@ class _DashScreenState extends State<DashScreen> {
         break;
     }
 
-    // Dibulatkan ke bilangan bulat terdekat tanpa angka di belakang koma
-    final String speedFormatted = convertedVelocity(_velocity)!.round().toString();
+    final String speedFormatted =
+        convertedVelocity(_velocity)!.round().toString();
     return '$speedFormatted $unitText';
   }
 
@@ -51,23 +55,24 @@ class _DashScreenState extends State<DashScreen> {
     await _ttsService.setLanguage(_ttsLanguage);
     await _ttsService.setSpeechRate(_ttsSpeechRate);
 
-    // Hanya terapkan voice spesifik en-US jika bahasa yang dipilih adalah en-US
     if (_ttsLanguage == 'en-US') {
       if (!_isTTSFemale) {
-        await _ttsService.setVoice({'name': 'en-us-x-tpd-local', 'locale': 'en-US'});
+        await _ttsService
+            .setVoice({'name': 'en-us-x-tpd-local', 'locale': 'en-US'});
       } else {
-        await _ttsService.setVoice({'name': 'en-US-language', 'locale': 'en-US'});
+        await _ttsService
+            .setVoice({'name': 'en-US-language', 'locale': 'en-US'});
       }
     } else {
-      // Gunakan pitch sedikit berbeda untuk membedakan suara pria/wanita pada bahasa lain
       await _ttsService.setPitch(_isTTSFemale ? 1.1 : 0.85);
     }
 
     _ttsCallback?.cancel();
 
     if (_isTTSActive) _ttsService.speak(speakText);
-    _ttsCallback =
-        Stream.periodic((_ttsDuration ?? const Duration(seconds: 3)) + const Duration(seconds: 1)).listen(
+    _ttsCallback = Stream.periodic(
+      (_ttsDuration ?? const Duration(seconds: 3)) + const Duration(seconds: 1),
+    ).listen(
       (event) {
         if (_isTTSActive) _ttsService.speak(speakText);
       },
@@ -162,16 +167,19 @@ class _DashScreenState extends State<DashScreen> {
   void initState() {
     super.initState();
     _velocityUpdatedStreamController = StreamController<double?>.broadcast();
-    
-    // Panggil posisi awal untuk memancing sensor GPS aktif segera
-    locator.getCurrentPosition(
+
+    // Panggil posisi awal untuk memancing chip GPS aktif segera
+    locator
+        .getCurrentPosition(
       locationSettings: AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         forceLocationManager: true,
       ),
-    ).then((Position pos) {
+    )
+        .then((Position pos) {
       if (mounted) {
-        setState(() => _gpsStatus = "GPS Terkunci (Akurasi: ${pos.accuracy.toStringAsFixed(0)}m)");
+        setState(() => _gpsStatus =
+            "GPS Terkunci (Akurasi: ${pos.accuracy.toStringAsFixed(0)}m)");
       }
       _onAccelerate(pos.speed);
     }).catchError((e) {
@@ -192,7 +200,8 @@ class _DashScreenState extends State<DashScreen> {
           (Position position) {
             if (mounted) {
               setState(() {
-                _gpsStatus = "GPS Aktif (Akurasi: ${position.accuracy.toStringAsFixed(0)}m)";
+                _gpsStatus =
+                    "GPS Aktif (Akurasi: ${position.accuracy.toStringAsFixed(0)}m)";
               });
             }
             _onAccelerate(position.speed);
@@ -237,7 +246,6 @@ class _DashScreenState extends State<DashScreen> {
       _velocityUpdatedStreamController.add(_velocity);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -287,7 +295,6 @@ class _DashScreenState extends State<DashScreen> {
       ],
     );
   }
-
 
   @override
   void dispose() {
