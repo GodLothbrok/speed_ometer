@@ -1,4 +1,4 @@
-package com.example.speed_ometer
+package com.speedocebong.ciater
 
 import io.flutter.embedding.android.FlutterActivity
 
