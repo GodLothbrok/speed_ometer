@@ -22,7 +22,7 @@ class _DashScreenState extends State<DashScreen> {
   late FlutterTts _ttsService;
   StreamSubscription? _ttsCallback;
 
-  /// String that the tts will read aloud, Speed + Expanded Unit (Adapted to selected language)
+   /// String that the tts will read aloud, Speed + Expanded Unit (Adapted to selected language)
   String get speakText {
     String unitText;
     final bool isIndo = _ttsLanguage.startsWith('id') || _ttsLanguage.startsWith('ms');
@@ -42,10 +42,9 @@ class _DashScreenState extends State<DashScreen> {
         break;
     }
 
-    final String speedFormatted = convertedVelocity(_velocity)!.toStringAsFixed(1);
-    return isIndo
-        ? '${speedFormatted.replaceAll('.', ' koma ')} $unitText'
-        : '$speedFormatted $unitText';
+    // Dibulatkan ke bilangan bulat terdekat tanpa angka di belakang koma
+    final String speedFormatted = convertedVelocity(_velocity)!.round().toString();
+    return '$speedFormatted $unitText';
   }
 
   Future<void> _startTTS() async {
