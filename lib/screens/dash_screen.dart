@@ -22,8 +22,9 @@ class _DashScreenState extends State<DashScreen> {
   late FlutterTts _ttsService;
   StreamSubscription? _ttsCallback;
 
-  // Variabel status GPS yang ditampilkan di atas layar
   String _gpsStatus = "Mencari sinyal GPS...";
+  StreamSubscription<Position>? _positionStream;
+  Timer? _fallbackGpsTimer;
 
   /// String that the tts will read aloud, Speed + Expanded Unit (Rounded & Localized)
   String get speakText {
@@ -163,9 +164,6 @@ class _DashScreenState extends State<DashScreen> {
     return velocity;
   }
 
-    StreamSubscription<Position>? _positionStream;
-  Timer? _fallbackGpsTimer;
-
   @override
   void initState() {
     super.initState();
@@ -298,7 +296,7 @@ class _DashScreenState extends State<DashScreen> {
     );
   }
 
-   @override
+  @override
   void dispose() {
     _positionStream?.cancel();
     _fallbackGpsTimer?.cancel();
@@ -307,4 +305,4 @@ class _DashScreenState extends State<DashScreen> {
     _ttsService.stop();
     super.dispose();
   }
-
+}
