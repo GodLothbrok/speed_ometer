@@ -163,55 +163,57 @@ class _DashScreenState extends State<DashScreen> {
     return velocity;
   }
 
+    StreamSubscription<Position>? _positionStream;
+  Timer? _fallbackGpsTimer;
+
   @override
   void initState() {
     super.initState();
     _velocityUpdatedStreamController = StreamController<double?>.broadcast();
 
-    // Panggil posisi awal untuk memancing chip GPS aktif segera
-    locator
-        .getCurrentPosition(
-      locationSettings: AndroidSettings(
-        accuracy: LocationAccuracy.bestForNavigation,
-        forceLocationManager: true,
-      ),
-    )
-        .then((Position pos) {
-      if (mounted) {
-        setState(() => _gpsStatus =
-            "GPS Terkunci (Akurasi: ${pos.accuracy.toStringAsFixed(0)}m)");
-      }
-      _onAccelerate(pos.speed);
-    }).catchError((e) {
-      if (mounted) setState(() => _gpsStatus = "Error GPS Awal: $e");
-    });
+    // 1. Gunakan LocationSettings standar (Fused Location seperti Google Maps)
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.bestForNavigation,
+      distanceFilter: 0,
+    );
 
-    // Stream pembaruan kecepatan berkelanjutan
-    locator
-        .getPositionStream(
-          locationSettings: AndroidSettings(
-            accuracy: LocationAccuracy.bestForNavigation,
-            distanceFilter: 0,
-            forceLocationManager: true,
-            intervalDuration: const Duration(seconds: 1),
-          ),
-        )
-        .listen(
-          (Position position) {
-            if (mounted) {
-              setState(() {
-                _gpsStatus =
-                    "GPS Aktif (Akurasi: ${position.accuracy.toStringAsFixed(0)}m)";
-              });
-            }
-            _onAccelerate(position.speed);
-          },
-          onError: (e) {
-            if (mounted) {
-              setState(() => _gpsStatus = "Stream GPS Error: $e");
-            }
-          },
+    _positionStream = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen(
+      (Position position) {
+        if (mounted) {
+          setState(() {
+            _gpsStatus =
+                "GPS Aktif (Akurasi: ${position.accuracy.toStringAsFixed(0)}m)";
+          });
+        }
+        _onAccelerate(position.speed);
+      },
+      onError: (e) {
+        if (mounted) {
+          setState(() => _gpsStatus = "Stream Error: $e");
+        }
+      },
+    );
+
+    // 2. Timer cadangan setiap 2 detik untuk menjaga chip GPS tetap hidup
+    _fallbackGpsTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      try {
+        Position pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.bestForNavigation,
+          timeLimit: const Duration(seconds: 2),
         );
+        if (mounted) {
+          setState(() {
+            _gpsStatus =
+                "GPS Aktif (Akurasi: ${pos.accuracy.toStringAsFixed(0)}m)";
+          });
+        }
+        _onAccelerate(pos.speed);
+      } catch (_) {
+        // Abaikan jika timeout sementara
+      }
+    });
 
     _velocity = 0.0;
     _highestVelocity = 0.0;
@@ -296,11 +298,13 @@ class _DashScreenState extends State<DashScreen> {
     );
   }
 
-  @override
+   @override
   void dispose() {
+    _positionStream?.cancel();
+    _fallbackGpsTimer?.cancel();
     _velocityUpdatedStreamController.close();
     _ttsCallback?.cancel();
     _ttsService.stop();
     super.dispose();
   }
-}
+
