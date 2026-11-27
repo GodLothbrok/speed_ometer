@@ -17,4 +17,4 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: speed_ometer-apk
-          path: build/app/outputs/flutter-apk/voicespeedo.apk
+          path: build/app/outputs/flutter-apk/app-release.apk
