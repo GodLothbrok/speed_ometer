@@ -163,7 +163,22 @@ class _DashScreenState extends State<DashScreen> {
     super.initState();
     _velocityUpdatedStreamController = StreamController<double?>.broadcast();
     
-    // Konfigurasi khusus Android agar membaca GPS secara real-time setiap 1 detik
+    // Panggil posisi awal untuk memancing sensor GPS aktif segera
+    locator.getCurrentPosition(
+      locationSettings: AndroidSettings(
+        accuracy: LocationAccuracy.bestForNavigation,
+        forceLocationManager: true,
+      ),
+    ).then((Position pos) {
+      if (mounted) {
+        setState(() => _gpsStatus = "GPS Terkunci (Akurasi: ${pos.accuracy.toStringAsFixed(0)}m)");
+      }
+      _onAccelerate(pos.speed);
+    }).catchError((e) {
+      if (mounted) setState(() => _gpsStatus = "Error GPS Awal: $e");
+    });
+
+    // Stream pembaruan kecepatan berkelanjutan
     locator
         .getPositionStream(
           locationSettings: AndroidSettings(
@@ -171,15 +186,22 @@ class _DashScreenState extends State<DashScreen> {
             distanceFilter: 0,
             forceLocationManager: true,
             intervalDuration: const Duration(seconds: 1),
-            foregroundNotificationConfig: const ForegroundNotificationConfig(
-              notificationText: "Speedometer sedang melacak kecepatan GPS Anda",
-              notificationTitle: "Speedometer Aktif",
-              enableWakeLock: true,
-            ),
           ),
         )
         .listen(
-          (Position position) => _onAccelerate(position.speed),
+          (Position position) {
+            if (mounted) {
+              setState(() {
+                _gpsStatus = "GPS Aktif (Akurasi: ${position.accuracy.toStringAsFixed(0)}m)";
+              });
+            }
+            _onAccelerate(position.speed);
+          },
+          onError: (e) {
+            if (mounted) {
+              setState(() => _gpsStatus = "Stream GPS Error: $e");
+            }
+          },
         );
 
     _velocity = 0.0;
