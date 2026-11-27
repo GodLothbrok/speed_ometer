@@ -161,19 +161,28 @@ class _DashScreenState extends State<DashScreen> {
   @override
   void initState() {
     super.initState();
-    _velocityUpdatedStreamController = StreamController<double?>();
+    _velocityUpdatedStreamController = StreamController<double?>.broadcast();
+    
+    // Konfigurasi khusus Android agar membaca GPS secara real-time setiap 1 detik
     locator
         .getPositionStream(
-          locationSettings: const LocationSettings(
+          locationSettings: AndroidSettings(
             accuracy: LocationAccuracy.bestForNavigation,
             distanceFilter: 0,
+            forceLocationManager: true,
+            intervalDuration: const Duration(seconds: 1),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationText: "Speedometer sedang melacak kecepatan GPS Anda",
+              notificationTitle: "Speedometer Aktif",
+              enableWakeLock: true,
+            ),
           ),
         )
         .listen(
           (Position position) => _onAccelerate(position.speed),
         );
 
-    _velocity = 0;
+    _velocity = 0.0;
     _highestVelocity = 0.0;
     _ttsDuration = const Duration(seconds: 3);
 
@@ -195,7 +204,6 @@ class _DashScreenState extends State<DashScreen> {
   }
 
   void _onAccelerate(double speed) {
-    // Pastikan nilai negatif (jika sensor belum siap) diubah menjadi 0
     final double validSpeed = speed < 0 ? 0.0 : speed;
     if (mounted) {
       setState(() {
@@ -207,6 +215,7 @@ class _DashScreenState extends State<DashScreen> {
       _velocityUpdatedStreamController.add(_velocity);
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
