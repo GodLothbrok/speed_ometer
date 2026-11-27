@@ -41,14 +41,13 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
-   defaultConfig {
-    applicationId "com.speedocebong.ciater"
-    minSdkVersion flutter.minSdkVersion
-    targetSdkVersion flutter.targetSdkVersion
-    versionCode flutterVersionCode.toInteger()
-    versionName flutterVersionName
-}
-
+      defaultConfig {
+        applicationId "com.speedocebong.ciater"
+        minSdkVersion 21
+        targetSdkVersion flutter.targetSdkVersion
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+    }
 
     buildTypes {
         release {
